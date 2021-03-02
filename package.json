@@ -1,7 +1,7 @@
 {
-    "name": "com.johnsoncodehk.unity-ui-playable",
-    "displayName": "UI Playable",
-    "version": "2.1.0",
+    "name": "com.cj-studio.uniuip",
+    "displayName": "UniUIP",
+    "version": "2.2.0",
     "description": "",
     "dependencies": {}
 }

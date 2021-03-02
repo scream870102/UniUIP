@@ -3,113 +3,118 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditorInternal;
 
-[CustomEditor(typeof(UIPlayable))]
-public class UIPlayableInspector : Editor
+
+namespace Scream.UniUIP
 {
-
-    UIPlayable playable => target as UIPlayable;
-    ReorderableList m_ReorderableList;
-
-    public void OnEnable()
+    [CustomEditor(typeof(UIPlayable))]
+    public class UIPlayableInspector : Editor
     {
-        m_ReorderableList = new ReorderableList(playable.states, typeof(UIPlayable.State), true, true, true, true);
-        m_ReorderableList.drawHeaderCallback = OnDrawHeader;
-        m_ReorderableList.drawElementCallback = OnDrawElement;
-        m_ReorderableList.elementHeightCallback = GetElementHeight;
-        m_ReorderableList.onAddCallback = OnAddElement;
-    }
 
-    public override void OnInspectorGUI()
-    {
-        DrawDefaultState();
-        m_ReorderableList.DoLayoutList();
-        serializedObject.ApplyModifiedProperties();
-    }
+        UIPlayable playable => target as UIPlayable;
+        ReorderableList m_ReorderableList;
 
-    void DrawDefaultState()
-    {
-        UIPlayable.State defaultState = playable.defaultState;
-        int defaultStateIndex = playable.states.IndexOf(defaultState);
-        List<string> options = new List<string> { "None" };
-        foreach (UIPlayable.State state in playable.states)
+        public void OnEnable()
         {
-            if (string.IsNullOrEmpty(state.name))
+            m_ReorderableList = new ReorderableList(playable.States, typeof(State), true, true, true, true);
+            m_ReorderableList.drawHeaderCallback = OnDrawHeader;
+            m_ReorderableList.drawElementCallback = OnDrawElement;
+            m_ReorderableList.elementHeightCallback = GetElementHeight;
+            m_ReorderableList.onAddCallback = OnAddElement;
+        }
+
+        public override void OnInspectorGUI()
+        {
+            DrawDefaultState();
+            m_ReorderableList.DoLayoutList();
+            serializedObject.ApplyModifiedProperties();
+        }
+
+        void DrawDefaultState()
+        {
+            State defaultState = playable.DefaultState;
+            int defaultStateIndex = playable.States.IndexOf(defaultState);
+            List<string> options = new List<string>() { "None" };
+            foreach (State state in playable.States)
             {
-                options.Add("");
-                options.Add("");
+                if (string.IsNullOrEmpty(state.Name))
+                {
+                    options.Add("");
+                    options.Add("");
+                }
+                else
+                {
+                    options.Add(state.Name);
+                    options.Add(state.Name + " (End)");
+                }
             }
-            else
+
+            int currentIndex = 0;
+            if (defaultStateIndex >= 0)
             {
-                options.Add(state.name);
-                options.Add(state.name + " (End)");
+                currentIndex = defaultStateIndex * 2 + 1;
+                if (playable.DefaultStateAnimation == UIPlayable.StateAnimationType.Loop)
+                    currentIndex += 1;
+            }
+
+            int newIndex = EditorGUILayout.Popup("Default State", currentIndex, options.ToArray());
+            if (newIndex != currentIndex)
+            {
+                if (newIndex == 0)
+                {
+                    playable.DefaultState = null;
+                    playable.DefaultStateAnimation = UIPlayable.StateAnimationType.Enter;
+                }
+                else
+                {
+                    var state = playable.States[(newIndex - 1) / 2];
+                    playable.DefaultState = state;
+                    playable.DefaultStateAnimation = newIndex % 2 == 1 ? UIPlayable.StateAnimationType.Enter : UIPlayable.StateAnimationType.Loop;
+                }
+                EditorUtility.SetDirty(playable);
             }
         }
 
-        int currentIndex = 0;
-        if (defaultStateIndex >= 0)
+        void OnDrawHeader(Rect rect)
         {
-            currentIndex = defaultStateIndex * 2 + 1;
-            if (playable.defaultStateAnimation == UIPlayable.StateAnimationType.Loop)
-                currentIndex += 1;
+            GUI.Label(rect, "States");
         }
 
-        int newIndex = EditorGUILayout.Popup("Default State", currentIndex, options.ToArray());
-        if (newIndex != currentIndex)
+        void OnDrawElement(Rect rect, int index, bool isActive, bool isFocused)
         {
-            if (newIndex == 0)
+            SerializedProperty state = serializedObject.FindProperty("States").GetArrayElementAtIndex(index);
+            float y = rect.yMin + 2;
+
+            DrawPropertyField("Name");
+            DrawPropertyField("Animation");
+            DrawPropertyField("LoopAnimation");
+            DrawPropertyField("OnAnimationEnd");
+
+            void DrawPropertyField(string name)
             {
-                playable.defaultState = null;
-                playable.defaultStateAnimation = UIPlayable.StateAnimationType.Enter;
+                SerializedProperty property = state.FindPropertyRelative(name);
+                float h = EditorGUI.GetPropertyHeight(property);
+                float w = rect.width;
+                if (Application.isPlaying && name == "Name")
+                {
+                    w -= 80;
+                    if (GUI.Button(new Rect(rect.xMax - 80, y, 80, 16), "Play"))
+                        playable.Play(playable.States[index]);
+                }
+                EditorGUI.PropertyField(new Rect(rect.x, y, w, h), property);
+                y += h + 2;
             }
-            else
-            {
-                UIPlayable.State state = playable.states[(newIndex - 1) / 2];
-                playable.defaultState = state;
-                playable.defaultStateAnimation = newIndex % 2 == 1 ? UIPlayable.StateAnimationType.Enter : UIPlayable.StateAnimationType.Loop;
-            }
-            EditorUtility.SetDirty(playable);
         }
-    }
 
-    void OnDrawHeader(Rect rect)
-    {
-        GUI.Label(rect, "States");
-    }
-
-    void OnDrawElement(Rect rect, int index, bool isactive, bool isfocused)
-    {
-        SerializedProperty state = serializedObject.FindProperty("states").GetArrayElementAtIndex(index);
-        float y = rect.yMin + 2;
-
-        DrawPropertyField("name");
-        DrawPropertyField("animation");
-        DrawPropertyField("loopAnimation");
-        DrawPropertyField("onAnimationEnd");
-
-        void DrawPropertyField(string name)
+        float GetElementHeight(int index)
         {
-            SerializedProperty property = state.FindPropertyRelative(name);
-            float h = EditorGUI.GetPropertyHeight(property);
-            float w = rect.width;
-            if (Application.isPlaying && name == "name")
-            {
-                w -= 80;
-                if (GUI.Button(new Rect(rect.xMax - 80, y, 80, 16), "Play"))
-                    playable.Play(playable.states[index]);
-            }
-            EditorGUI.PropertyField(new Rect(rect.x, y, w, h), property);
-            y += h + 2;
+            SerializedProperty state = serializedObject.FindProperty("States").GetArrayElementAtIndex(index);
+            return 2 + 18 * 3 + EditorGUI.GetPropertyHeight(state.FindPropertyRelative("OnAnimationEnd")) + 10;
         }
-    }
 
-    float GetElementHeight(int index)
-    {
-        SerializedProperty state = serializedObject.FindProperty("states").GetArrayElementAtIndex(index);
-        return 2 + 18 * 3 + EditorGUI.GetPropertyHeight(state.FindPropertyRelative("onAnimationEnd")) + 10;
-    }
-
-    void OnAddElement(ReorderableList list)
-    {
-        playable.states.Add(new UIPlayable.State());
+        void OnAddElement(ReorderableList list)
+        {
+            playable.States.Add(new State());
+        }
     }
 }
+
